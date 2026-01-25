@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت اتاق فرار - آپدیت جدید</title>
+    
+    <!-- استایل‌ها (Tailwind CSS) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- فونت وزیر -->
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { font-family: 'Vazirmatn', sans-serif; }
+    </style>
+
+    <!-- React و Firebase -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- کانفیگ فایربیس ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyASTqLEj7DC8v6ba6jusw_a-_3rc8ThobE",
+            authDomain: "escaproom-1e341.firebaseapp.com",
+            projectId: "escaproom-1e341",
+            storageBucket: "escaproom-1e341.firebasestorage.app",
+            messagingSenderId: "156843734658",
+            appId: "1:156843734658:web:4b3c905b8c7ac485c5a69b"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const { useState, useEffect, useMemo } = React;
+
+        // --- آیکون‌ها ---
+        const Icon = ({ path, className, color }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={{color: color}}>
+                {path}
+            </svg>
+        );
+        const Users = (props) => <Icon {...props} path={<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />;
+        const FileSpreadsheet = (props) => <Icon {...props} path={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></>} />;
+        const ChevronRight = (props) => <Icon {...props} path={<polyline points="9 18 15 12 9 6"/>} />;
+        const ChevronLeft = (props) => <Icon {...props} path={<polyline points="15 18 9 12 15 6"/>} />;
+        const Save = (props) => <Icon {...props} path={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>} />;
+        const Trash2 = (props) => <Icon {...props} path={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />;
+        const DollarSign = (props) => <Icon {...props} path={<><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>} />;
+        const WifiOff = (props) => <Icon {...props} path={<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>} />;
+        const Percent = (props) => <Icon {...props} path={<><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></>} />;
+
+        // --- تبدیل تاریخ (کد فشرده) ---
+        const jalaali = {
+            toJalaali: (gy, gm, gd) => {
+                const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+                let jy = (gy <= 1600) ? 0 : 979; gy -= (gy <= 1600) ? 621 : 1600;
+                const gy2 = (gm > 2) ? (gy + 1) : gy;
+                let days = (365 * gy) + parseInt((gy2 + 3) / 4) - parseInt((gy2 + 99) / 100) + parseInt((gy2 + 399) / 400) - 80 + gd + g_d_m[gm - 1];
+                jy += 33 * parseInt(days / 12053); days %= 12053; jy += 4 * parseInt(days / 1461); days %= 1461;
+                jy += parseInt((days - 1) / 365); if (days > 365) days = (days - 1) % 365;
+                const jm = (days < 186) ? 1 + parseInt(days / 31) : 7 + parseInt((days - 186) / 30);
+                const jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+                return { jy, jm, jd };
+            },
+            toGregorian: (jy, jm, jd) => {
+                let gy = (jy <= 979) ? 621 : 1600; jy -= (jy <= 979) ? 0 : 979;
+                let days = (365 * jy) + ((parseInt(jy / 33) * 8) + parseInt(((jy % 33) + 3) / 4)) + 78 + jd + ((jm < 7) ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+                gy += 400 * parseInt(days / 146097); days %= 146097;
+                if (days > 36524) { gy += 100 * parseInt(--days / 36524); days %= 36524; if (days >= 365) days++; }
+                gy += 4 * parseInt(days / 1461); days %= 1461; gy += parseInt((days - 1) / 365); if (days > 365) days = (days - 1) % 365;
+                let gd = days + 1; const sal_a = [0, 31, ((gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                let gm; for (gm = 0; gm < 13; gm++) { const v = sal_a[gm]; if (gd <= v) break; gd -= v; }
+                return { gy, gm, gd };
+            },
+            jalaaliMonthLength: (jy, jm) => {
+                if (jm <= 6) return 31; if (jm <= 11) return 30;
+                const rem = jy % 33; return [1, 5, 9, 13, 17, 22, 26, 30].includes(rem) ? 30 : 29; 
+            }
+        };
+
+        // --- تنظیمات سانس‌ها (هوشمند) ---
+        // سانس‌های قدیمی (قبل از ۱۸ دی)
+        const OLD_SLOTS = [
+            { time: "11", price: 300000, display: "11:00" },
+            { time: "14", price: 320000, display: "14:00" },
+            { time: "17", price: 350000, display: "17:00" },
+            { time: "20", price: 380000, display: "20:00" },
+            { time: "23", price: 410000, display: "23:00" },
+        ];
+
+        // سانس‌های جدید (از ۱۸ دی به بعد)
+        const NEW_SLOTS = [
+            { time: "10:30", price: 300000, display: "10:30" },
+            { time: "13:00", price: 320000, display: "13:00" },
+            { time: "15:30", price: 340000, display: "15:30" },
+            { time: "18:00", price: 370000, display: "18:00" },
+            { time: "20:30", price: 390000, display: "20:30" },
+            { time: "23:00", price: 420000, display: "23:00" },
+            { time: "01:30", price: 470000, display: "01:30" }, // بامداد
+        ];
+
+        // تابع انتخاب سانس بر اساس تاریخ
+        const getSlotsForDate = (jy, jm, jd) => {
+            // تبدیل تاریخ به یک عدد برای مقایسه راحت‌تر (YYYYMMDD)
+            const dateVal = (jy * 10000) + (jm * 100) + jd;
+            const pivotVal = (1403 * 10000) + (10 * 100) + 18; // تاریخ ۱۸ دی ۱۴۰۳
+
+            if (dateVal >= pivotVal) {
+                return NEW_SLOTS;
+            } else {
+                return OLD_SLOTS;
+            }
+        };
+
+        const WEEK_DAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+        const MONTH_NAMES = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+        const toPersianDigits = (num) => { if (num === null || num === undefined) return ''; return num.toString().replace(/\d/g, (x) => '۰۱۲۳۴۵۶۷۸۹'[x]); };
+        const formatCurrency = (num) => toPersianDigits(num.toLocaleString());
+        const getJalaliDateFromDate = (date) => jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+
+        // --- کامپوننت‌ها ---
+        const Loading = ({ error }) => (
+            <div className="flex items-center justify-center h-screen bg-slate-900 text-white flex-col gap-4 p-4 text-center">
+                {error ? (
+                    <React.Fragment>
+                        <WifiOff className="w-12 h-12 text-red-500" />
+                        <span className="text-lg text-red-400 font-bold">خطا در اتصال</span>
+                        <p className="text-sm text-slate-400">{error}</p>
+                        <button onClick={() => window.location.reload()} className="mt-4 bg-slate-700 px-4 py-2 rounded">تلاش مجدد</button>
+                    </React.Fragment>
+                ) : (
+                    <React.Fragment>
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+                        <span className="text-lg">در حال بارگذاری سیستم...</span>
+                    </React.Fragment>
+                )}
+            </div>
+        );
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [bookings, setBookings] = useState([]);
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [selectedDay, setSelectedDay] = useState(null); 
+            const [view, setView] = useState('calendar'); 
+            const [authError, setAuthError] = useState(null);
+
+            useEffect(() => {
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    if (u) setUser(u);
+                    else auth.signInAnonymously().catch((error) => setAuthError("مشکل در احراز هویت."));
+                });
+                return () => unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
+                const unsubscribe = db.collection('bookings')
+                    .onSnapshot((snapshot) => {
+                        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        setBookings(data);
+                    }, (error) => console.error("Data Fetch Error:", error));
+                return () => unsubscribe();
+            }, [user]);
+
+            const jDate = useMemo(() => getJalaliDateFromDate(currentDate), [currentDate]);
+            const calendarDays = useMemo(() => {
+                const { jy, jm } = jDate;
+                const daysInMonth = jalaali.jalaaliMonthLength(jy, jm);
+                const firstDayGregorian = jalaali.toGregorian(jy, jm, 1);
+                const startDayOfWeek = (new Date(firstDayGregorian.gy, firstDayGregorian.gm - 1, firstDayGregorian.gd).getDay() + 1) % 7;
+                const days = [];
+                for (let i = 0; i < startDayOfWeek; i++) days.push(null);
+                for (let i = 1; i <= daysInMonth; i++) days.push({ jy, jm, jd: i });
+                return days;
+            }, [jDate]);
+
+            const changeMonth = (delta) => {
+                let { jy, jm } = jDate; jm += delta;
+                if (jm > 12) { jm = 1; jy++; } if (jm < 1) { jm = 12; jy--; }
+                const gDate = jalaali.toGregorian(jy, jm, 1);
+                setCurrentDate(new Date(gDate.gy, gDate.gm - 1, gDate.gd));
+            };
+
+            const getDayRevenue = (jy, jm, jd) => {
+                const dayStr = `${jy}/${jm}/${jd}`;
+                return bookings.filter(b => b.dateStr === dayStr).reduce((sum, b) => sum + (b.finalIncome || 0), 0);
+            };
+
+            const getMonthRevenue = () => {
+                const { jy, jm } = jDate;
+                return bookings.filter(b => b.dateStr.startsWith(`${jy}/${jm}/`)).reduce((sum, b) => sum + (b.finalIncome || 0), 0);
+            };
+
+            const exportToCSV = () => {
+                const { jy, jm } = jDate;
+                const monthBookings = bookings.filter(b => b.dateStr.startsWith(`${jy}/${jm}/`));
+                const bom = "\uFEFF";
+                let csvContent = "تاریخ,ساعت,نوع رزرو,تعداد نفرات,قیمت پایه,کمیسیون,درآمد اضافه,توضیحات اضافه,تخفیف,درآمد خالص\n";
+                monthBookings.forEach(b => {
+                    const cleanDesc = (b.extraDesc || '').replace(/,/g, ' '); 
+                    const row = [b.dateStr, b.timeSlot, b.type === 't4f' ? 'T4F' : 'تلفنی', b.people, b.basePrice, b.commission, b.extraRevenue, cleanDesc, b.discount || 0, b.finalIncome].join(",");
+                    csvContent += row + "\n";
+                });
+                const link = document.createElement("a");
+                link.setAttribute("href", URL.createObjectURL(new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })));
+                link.setAttribute("download", `Gozarash_${jy}_${jm}.csv`);
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            };
+
+            if (!user && !authError) return <Loading />;
+            if (authError) return <Loading error={authError} />;
+
+            return (
+                <div className="max-w-4xl mx-auto bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700 my-8">
+                    <div className="bg-slate-950 p-6 flex justify-between items-center border-b border-slate-700">
+                        <div>
+                            <h1 className="text-2xl font-bold text-emerald-400 flex items-center gap-2"><Users className="w-6 h-6" />مدیریت اتاق فرار</h1>
+                            <p className="text-slate-500 text-xs mt-1 font-mono">{firebaseConfig.projectId}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-sm text-slate-400">درآمد ماه جاری ({MONTH_NAMES[jDate.jm - 1]})</p>
+                            <p className="text-xl font-bold text-emerald-400">{formatCurrency(getMonthRevenue())} <span className="text-xs text-slate-500">تومان</span></p>
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        {view === 'calendar' ? (
+                            <div className="animate-fadeIn">
+                                <div className="flex justify-between items-center mb-6 bg-slate-900 p-3 rounded-xl border border-slate-700">
+                                    <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-700 rounded-lg transition text-slate-300"><ChevronRight /></button>
+                                    <h2 className="text-xl font-bold text-slate-100">{MONTH_NAMES[jDate.jm - 1]} <span className="text-slate-500 mx-2">{toPersianDigits(jDate.jy)}</span></h2>
+                                    <button onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-700 rounded-lg transition text-slate-300"><ChevronLeft /></button>
+                                </div>
+                                <div className="grid grid-cols-7 gap-2 mb-2">{WEEK_DAYS.map(d => <div key={d} className="text-center text-slate-500 text-sm font-bold py-2">{d}</div>)}</div>
+                                <div className="grid grid-cols-7 gap-2">
+                                    {calendarDays.map((day, idx) => {
+                                        if (!day) return <div key={idx}></div>;
+                                        const revenue = getDayRevenue(day.jy, day.jm, day.jd);
+                                        const isToday = day.jy === jDate.jy && day.jm === jDate.jm && day.jd === jDate.jd; 
+                                        return (
+                                            <div key={idx} onClick={() => { setSelectedDay(day); setView('day'); }} className={`relative h-24 rounded-xl border border-slate-700 p-2 cursor-pointer transition-all hover:border-emerald-500 hover:shadow-lg hover:bg-slate-750 group ${isToday ? 'bg-slate-800 ring-2 ring-emerald-500 shadow-emerald-900/20' : 'bg-slate-900'}`}>
+                                                <span className={`text-lg font-bold ${isToday ? 'text-emerald-400' : 'text-slate-300'}`}>{toPersianDigits(day.jd)}</span>
+                                                {revenue > 0 && <div className="mt-2 text-xs text-emerald-400 bg-emerald-900/30 p-1 rounded text-center font-bold">{formatCurrency(revenue)} ت</div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-6 flex justify-end">
+                                    <button onClick={exportToCSV} className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-lg text-sm transition shadow-lg"><FileSpreadsheet className="w-4 h-4" />خروجی اکسل</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <DayView day={selectedDay} onBack={() => { setView('calendar'); setSelectedDay(null); }} bookings={bookings} />
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const DayView = ({ day, onBack, bookings }) => {
+            const dateStr = `${day.jy}/${day.jm}/${day.jd}`;
+            const dayBookings = bookings.filter(b => b.dateStr === dateStr);
+            const totalDayRevenue = dayBookings.reduce((sum, b) => sum + (b.finalIncome || 0), 0);
+            
+            // دریافت لیست سانس‌ها بر اساس تاریخ
+            const timeSlots = getSlotsForDate(day.jy, day.jm, day.jd);
+
+            return (
+                <div className="animate-slideIn">
+                    <div className="flex items-center gap-4 mb-6 border-b border-slate-700 pb-4">
+                        <button onClick={onBack} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition"><ChevronRight className="w-5 h-5" /></button>
+                        <div>
+                            <h2 className="text-xl font-bold text-white">مدیریت سانس‌های {day.jd} {MONTH_NAMES[day.jm - 1]}</h2>
+                            <p className="text-emerald-400 text-sm mt-1">مجموع درآمد امروز: {formatCurrency(totalDayRevenue)} تومان</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {timeSlots.map(slot => {
+                            const existingBooking = dayBookings.find(b => b.timeSlot === slot.time);
+                            return <BookingCard key={slot.time} slot={slot} dateStr={dateStr} existingBooking={existingBooking} />;
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        const BookingCard = ({ slot, dateStr, existingBooking }) => {
+            const [isEditing, setIsEditing] = useState(false);
+            const [people, setPeople] = useState(4);
+            const [type, setType] = useState('phone'); 
+            const [extraRevenue, setExtraRevenue] = useState(0);
+            const [extraDesc, setExtraDesc] = useState('');
+            const [discount, setDiscount] = useState(0);
+            const [loading, setLoading] = useState(false);
+
+            useEffect(() => {
+                if (existingBooking) {
+                    setPeople(existingBooking.people);
+                    setType(existingBooking.type);
+                    setExtraRevenue(existingBooking.extraRevenue || 0);
+                    setExtraDesc(existingBooking.extraDesc || '');
+                    setDiscount(existingBooking.discount || 0);
+                } else {
+                    setPeople(4); setType('phone'); setExtraRevenue(0); setExtraDesc(''); setDiscount(0);
+                }
+            }, [existingBooking]);
+
+            const basePrice = slot.price * people;
+            const commission = type === 't4f' ? basePrice * 0.14 : 0;
+            const finalIncome = basePrice - commission + Number(extraRevenue) - Number(discount);
+
+            const handleSave = async () => {
+                setLoading(true);
+                const bookingData = { dateStr, timeSlot: slot.time, slotPrice: slot.price, people: Number(people), type, extraRevenue: Number(extraRevenue), extraDesc, discount: Number(discount), basePrice, commission, finalIncome, updatedAt: new Date().toISOString() };
+                try {
+                    // برای سانس‌هایی که کاراکتر : دارند (مثل 10:30) در آیدی باید تبدیل به خط تیره شود
+                    const safeTime = slot.time.replace(':', '-');
+                    const docId = `${dateStr.replace(/\//g, '-')}_${safeTime}`;
+                    await db.collection('bookings').doc(docId).set(bookingData);
+                    setIsEditing(false);
+                } catch (err) { console.error("Save failed", err); alert("خطا در ذخیره."); } finally { setLoading(false); }
+            };
+
+            const handleDelete = async () => {
+                if (!existingBooking || !confirm('حذف شود؟')) return;
+                setLoading(true);
+                try { await db.collection('bookings').doc(existingBooking.id).delete(); setIsEditing(false); } catch (err) { console.error(err); } finally { setLoading(false); }
+            };
+
+            const isBooked = !!existingBooking;
+
+            if (!isEditing && !isBooked) {
+                return (
+                    <div onClick={() => setIsEditing(true)} className="border border-slate-700 bg-slate-800/50 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-800 hover:border-emerald-500 transition min-h-[220px] group">
+                        <span className="text-3xl font-bold text-slate-500 group-hover:text-emerald-400 transition">{toPersianDigits(slot.display)}</span>
+                        <span className="text-slate-500 text-sm mt-2">{formatCurrency(slot.price)} / نفر</span>
+                        <div className="mt-6 bg-slate-700 text-slate-300 px-4 py-1.5 rounded-full text-sm group-hover:bg-emerald-600 group-hover:text-white transition shadow-lg">ثبت رزرو جدید</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`rounded-xl p-4 border transition-all ${isBooked && !isEditing ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-slate-800 border-slate-600 shadow-xl'}`}>
+                    <div className="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-2">
+                        <span className="text-xl font-bold text-white badge bg-slate-700 px-2 rounded">{toPersianDigits(slot.display)}</span>
+                        {!isEditing ? <button onClick={() => setIsEditing(true)} className="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-slate-300 transition">ویرایش</button> : <button onClick={() => setIsEditing(false)} className="text-xs text-red-400 hover:text-red-300 transition">انصراف</button>}
+                    </div>
+                    {isEditing ? (
+                        <div className="space-y-3 animate-fadeIn">
+                            <div><label className="text-xs text-slate-400 block mb-1">تعداد نفرات</label><input type="number" value={people} onChange={(e) => setPeople(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-sm focus:border-emerald-500 focus:outline-none"/></div>
+                            <div><label className="text-xs text-slate-400 block mb-1">نوع رزرو</label><div className="grid grid-cols-2 gap-2"><button onClick={() => setType('phone')} className={`text-sm py-2 rounded font-bold ${type === 'phone' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}>تلفنی</button><button onClick={() => setType('t4f')} className={`text-sm py-2 rounded font-bold ${type === 't4f' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-400'}`}>T4F (-14%)</button></div></div>
+                            <div className="pt-2 border-t border-slate-700"><label className="text-xs text-slate-400 block mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3 text-yellow-500"/>درآمد اضافه</label><input type="number" value={extraRevenue} onChange={(e) => setExtraRevenue(e.target.value)} placeholder="مبلغ..." className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-sm mb-2"/><input type="text" value={extraDesc} onChange={(e) => setExtraDesc(e.target.value)} placeholder="توضیحات" className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs"/></div>
+                            <div className="pt-1"><label className="text-xs text-slate-400 block mb-1 flex items-center gap-1"><Percent className="w-3 h-3 text-red-500"/>تخفیف</label><input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="مبلغ تخفیف..." className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-sm focus:border-red-500"/></div>
+                            <div className="bg-slate-950 p-3 rounded-lg text-xs text-slate-400 space-y-1 mt-2 border border-slate-800">
+                                <div className="flex justify-between"><span>قیمت سانس:</span><span>{formatCurrency(basePrice)}</span></div>
+                                {commission > 0 && <div className="flex justify-between text-red-400"><span>کمیسیون:</span><span>- {formatCurrency(commission)}</span></div>}
+                                {Number(extraRevenue) > 0 && <div className="flex justify-between text-yellow-400"><span>اضافه:</span><span>+ {formatCurrency(extraRevenue)}</span></div>}
+                                {Number(discount) > 0 && <div className="flex justify-between text-red-400"><span>تخفیف:</span><span>- {formatCurrency(discount)}</span></div>}
+                                <div className="flex justify-between font-bold text-emerald-400 border-t border-slate-700 pt-2 mt-2 text-sm"><span>درآمد نهایی:</span><span>{formatCurrency(finalIncome)}</span></div>
+                            </div>
+                            <div className="flex gap-2 mt-4"><button onClick={handleSave} disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-sm flex justify-center items-center gap-2 font-bold">{loading ? '...' : <><Save className="w-4 h-4"/> ثبت نهایی</>}</button>{existingBooking && <button onClick={handleDelete} disabled={loading} className="px-3 bg-red-900/30 hover:bg-red-900/50 text-red-200 border border-red-900/50 rounded"><Trash2 className="w-4 h-4"/></button>}</div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3 text-sm">
+                            <div className="flex justify-between text-slate-300"><span>نوع رزرو:</span><span className={`px-2 py-0.5 rounded text-xs ${type === 't4f' ? 'bg-purple-900/50 text-purple-300' : 'bg-blue-900/50 text-blue-300'}`}>{type === 't4f' ? 'T4F' : 'تلفنی'}</span></div>
+                            <div className="flex justify-between text-slate-300"><span>نفرات:</span><span>{toPersianDigits(people)} نفر</span></div>
+                            {Number(extraRevenue) > 0 && <div className="flex justify-between text-yellow-500 text-xs bg-yellow-900/10 p-1 rounded"><span>+ {extraDesc || 'اضافه'}:</span><span>{formatCurrency(extraRevenue)}</span></div>}
+                            {Number(discount) > 0 && <div className="flex justify-between text-red-400 text-xs bg-red-900/10 p-1 rounded"><span>تخفیف:</span><span>- {formatCurrency(discount)}</span></div>}
+                            <div className="border-t border-slate-700 pt-2 mt-2"><div className="flex justify-between font-bold text-emerald-400 text-lg items-center"><span>{formatCurrency(finalIncome)}</span><span className="text-xs font-normal opacity-70 mr-1">تومان</span></div>{commission > 0 && <div className="text-right text-xs text-slate-500 mt-1">(با کسر {formatCurrency(commission)} کمیسیون)</div>}</div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
+
